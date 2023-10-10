@@ -6,7 +6,7 @@
     <Nullable>disable</Nullable>
     <AssemblyName>MediaDevices</AssemblyName>
     <RootNamespace>MediaDevices</RootNamespace>
-    <SignAssembly>True</SignAssembly>
+    <SignAssembly>False</SignAssembly>
     <AssemblyOriginatorKeyFile>Bassman.snk</AssemblyOriginatorKeyFile>
     <PackageId>MediaDevices</PackageId>
     <Version>1.10.0.0</Version>
