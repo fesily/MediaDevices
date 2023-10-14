@@ -17,11 +17,11 @@ namespace SwitchWpd
         public UInt64 version;
         public string Name;
     }
-    public struct InstalledGameInfo
+    public class InstalledGameInfo
     {
-        public string TileId;
-        public UInt64 version;
-        public string Name;
+        public string TileId { get; set; }
+        public string Version { get; set; }
+        public string Name { get; set; }
     }
     public class TilesManager
     {
@@ -97,6 +97,24 @@ namespace SwitchWpd
     }
     public class Switch : IDisposable
     {
+        public ulong FreeMem
+        {
+            get
+            {
+                var Storages = _device.FunctionalObjects(FunctionalCategory.Storage)?.ToList();
+                var SelectedStorage = Storages?.FirstOrDefault();
+                if (SelectedStorage != null)
+                {
+                    return _device.GetStorageInfo(SelectedStorage).FreeSpaceInBytes;
+                }
+                return 0;
+            }
+        }
+        public string SerialNumber {
+            get{
+                return _device.SerialNumber;    
+            } 
+    }
         ILogger Logger;
         public MediaDevice _device;
         public GameInfo[] target;
@@ -111,12 +129,13 @@ namespace SwitchWpd
         const string hash_name = "installer_hash";
         string installer_hash_path = DiskPath.Join(DiskPath.Type.SD_Card, hash_name);
         string installer_json_path = DiskPath.Join(DiskPath.Type.SD_Card, "installer.json");
-        private InstalledGameInfo[] ReadInstalledGames()
+        public InstalledGameInfo[] ReadInstalledGames()
         {
             var p = DiskPath.Join(DiskPath.Type.Installed_Games, "InstalledApplications.csv");
             using (var ss = new MemoryStream())
             {
                 _device.DownloadFile(p, ss);
+                ss.Seek(0, SeekOrigin.Begin);
                 using (TextReader reader = new StreamReader(ss))
                 {
                     var csvReader = new CsvHelper.CsvReader(reader, new CsvConfiguration(CultureInfo.InvariantCulture)

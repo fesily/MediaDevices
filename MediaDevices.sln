@@ -102,7 +102,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "switch", "switch", "{AD3C9C
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SwitchWpd", "switch\SwitchWpd\SwitchWpd.csproj", "{70904EA4-F15A-483D-8DC1-19FB6C1651A6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SwitchRandomInstaller", "SwitchRandomInstaller\SwitchRandomInstaller.csproj", "{9B5ED44D-34F9-473B-A7F3-3D14D07B1C7B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SwitchRandomInstaller", "SwitchRandomInstaller\SwitchRandomInstaller.csproj", "{9B5ED44D-34F9-473B-A7F3-3D14D07B1C7B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -1,5 +1,7 @@
 ﻿// See https://aka.ms/new-console-template for more information
 using MediaDevices;
+using SwitchWpd;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -7,20 +9,33 @@ using System.Text.Json.Serialization;
 var Root = Environment.GetEnvironmentVariable("ROOT") ?? Path.Join("G:\\", "switch");
 
 //序列号
-var SwitchId = Environment.GetEnvironmentVariable("SWITCH_ID") ?? Random.Shared.NextInt64().ToString();
-var DBDir = Path.Join(Root, "..", "switch_install_db");
+var SerialNumber = Environment.GetEnvironmentVariable("SWITCH_ID") ?? "XKC10008452541"?? Random.Shared.NextInt64().ToString();
 
+
+string GetTileId(string filename)
+{
+    return Path.GetFileName(filename).Split('[', ']')[5];
+}
 List<GameInfo> games = new List<GameInfo>();
+Dictionary<string, string> TileIdtoPath = new Dictionary<string, string>();
 foreach (var dir in Directory.EnumerateDirectories(Root))
 {
-    if (!dir.StartsWith("["))
+    var filename = Path.GetFileName(dir);
+    if (!filename.StartsWith("["))
         continue;
-    var sp = dir.Split('[', ']');
-    var ch_name = sp[0];
-    var en_name = sp[1];
-    var tileid = sp[2];
+    var sp = filename.Split('[', ']');
+    var ch_name = sp[1];
+    var en_name = sp[3];
+    var tileid = sp[5];
 
-    var length = new DirectoryInfo(dir).EnumerateFiles().Sum(i => i.Length);
+    var allTitleIds = new List<string>();
+    var length = new DirectoryInfo(dir).EnumerateFiles("*", new EnumerationOptions { RecurseSubdirectories=true}).Sum(i =>
+    {
+        var id = GetTileId(i.Name);
+        allTitleIds.Add(id);
+        TileIdtoPath[id] = i.FullName;
+        return i.Length;
+    });
 
     games.Add(new GameInfo
     {
@@ -28,57 +43,90 @@ foreach (var dir in Directory.EnumerateDirectories(Root))
         en_name = en_name,
         tileid = tileid,
         length = length,
-        dir_path = dir
+        dir_path = dir,
+        allTitleIds = allTitleIds.ToArray()
     });
 }
-static List<T> ListRandom<T>(List<T> sources)
+
+
+using (var driver = MediaDevices.MediaDevice.GetDevices().First(x => {
+    x.Connect();
+    return x.SerialNumber == SerialNumber;
+}))
 {
-    var random = new Random();
-    var resultList = new List<T>();
-    foreach (var item in sources)
+    var @switch = new SwitchWpd.Switch(driver);
+    try
     {
-        resultList.Insert(random.Next(resultList.Count), item);
-    }
-    return resultList;
-}
+        var installed = @switch.ReadInstalledGames().Select(x => x.TileId.Substring(2)).ToHashSet();
 
-ListRandom(games);
 
-using (var driver = MediaDevices.MediaDevice.GetDevices().First(x => x.DeviceId == SwitchId))
-{
-    driver.Connect();
-
-    var db = Path.Join("1: SD Card", "installed.json");
-    List<string> installed;
-    using (var ss = new MemoryStream())
-    {
-        driver.DownloadFile(db, ss);
-        installed = JsonSerializer.Deserialize<List<string>>(ss) ?? new List<string>();
-    }
-    //TODO 
-    long left_memory = 0;
-
-    List<GameInfo> target = games.SkipWhile(x=> installed.Contains(x.tileid)). TakeWhile(x =>
-    {
-        left_memory -= x.length;
-        return left_memory > 0;
-    }).ToList();
-
-    foreach (var item in target)
-    {
-        Console.WriteLine($"[{DateTime.Now}]  upload {item.en_name}");
-        driver.UploadFolder(item.dir_path, @"\5: SD Card install");
-        Console.WriteLine($"[{DateTime.Now}]  upload {item.en_name} complete!");
-        installed.Add(item.tileid);
-        using( var ss = new MemoryStream()) 
+        var target_file = Environment.GetEnvironmentVariable("TARGET") ?? @"C:\\Users\\fesil\\Downloads\\Untitled-1.ini";
+        if (target_file != null)
         {
-            JsonSerializer.Serialize(ss, installed);
-            using ( var ws = new MemoryStream(ss.GetBuffer()))
+            using (var ss = new StreamReader(new FileStream(target_file, FileMode.Open)))
             {
-                driver.UploadFile(ws, db);
+                var paths = new HashSet<string>(); 
+                while (!ss.EndOfStream) {
+                    var p = ss.ReadLine();
+                    if (p!=null)
+                        paths.Add(p);
+                }
+                var targettileids = paths.Where(p => Directory.Exists(p)).SelectMany(x => Directory.EnumerateFiles(x, "*", new EnumerationOptions { RecurseSubdirectories=true})).Select(GetTileId).ToHashSet();
+               
+                var target = games.SelectMany(x => x.allTitleIds).Where(
+                    x => targettileids.Contains(x)
+                    )
+                    .Where(x => !(installed != null && installed.Contains(x))).ToHashSet();
+                
+                foreach (var id in target)
+                {
+                    var filename = TileIdtoPath[id];
+                    Console.WriteLine($"[{DateTime.Now}]  upload {filename}");
+                    //TODO  System.Runtime.InteropServices.COMException 0x8007001F
+                    //TODO retry
+                    driver.UploadFile(filename,DiskPath.Join(DiskPath.Type.SD_Card_install,Path.GetFileName(filename)));
+                    Console.WriteLine($"[{DateTime.Now}]  upload {filename} complete!");
+                    installed.Add(id);
+                }
             }
         }
+        else
+        {
+            var left_memory = (long)@switch.FreeMem;
+            static List<T> ListRandom<T>(List<T> sources)
+            {
+                var random = new Random();
+                var resultList = new List<T>();
+                foreach (var item in sources)
+                {
+                    resultList.Insert(random.Next(resultList.Count), item);
+                }
+                return resultList;
+            }
+
+            var games_Arr = games.ToArray();
+            Random.Shared.Shuffle(games_Arr);
+            List<GameInfo> target = games_Arr.Where(x => (installed != null && installed.Contains(x.tileid))).Where(x =>
+            {
+                left_memory -= x.length;
+                return left_memory > 0;
+            }).ToList();
+
+            foreach (var item in target)
+            {
+                Console.WriteLine($"[{DateTime.Now}]  upload {item.en_name}");
+                driver.UploadFolder(item.dir_path, @"\5: SD Card install");
+                Console.WriteLine($"[{DateTime.Now}]  upload {item.en_name} complete!");
+                installed.Add(item.tileid);
+            }
+        }
+
     }
+    finally
+    {
+        @switch.Disconnect();
+    }
+
 }
 
 public class GameInfo
@@ -88,4 +136,5 @@ public class GameInfo
     public string tileid;
     public Int64 length;
     public string dir_path;
+    public string[] allTitleIds;
 }
