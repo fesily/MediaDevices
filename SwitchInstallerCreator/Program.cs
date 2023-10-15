@@ -6,7 +6,7 @@ DBInfo.ReadGameDBInfo();
 TilesManager.Instance = new TilesManager()
 {
 
-    zh2TitleId = DBInfo.infos.Where((x, i) => DBInfo.infos.FindIndex(z => z.CH_NAME == x.CH_NAME) == i).ToDictionary(i => i.CH_NAME, i => i.TitleID),
+    zh2TitleId = DBInfo.infos.GroupBy(g => g.CH_NAME).ToDictionary(i => i.Key, i => i.Select(j => j.TitleID).ToArray()),
 };
 
 var file = args[0];
@@ -24,9 +24,12 @@ foreach (var p in File.ReadAllLines(file))
     }
     catch (FormatException)
     {
-        if (TilesManager.Instance.TryGetTitleIdFilesByName(p, out string id))
+        if (TilesManager.Instance.TryGetTitleIdFilesByName(p, out string[] ids))
         {
-            targetids.Add(id);
+            foreach (var id in ids)
+            {
+                targetids.Add(id);
+            }
             continue;
         }
     }
@@ -34,4 +37,7 @@ foreach (var p in File.ReadAllLines(file))
     Console.WriteLine($"unkown item : {p}");
     targetids.Add(p);
 }
-File.WriteAllLines(file, targetids);
+var target_path = Path.Join(Path.GetDirectoryName(file), "installer");
+Console.WriteLine($"Write Installer :{target_path}");
+File.WriteAllLines(target_path, targetids);
+Console.ReadKey();

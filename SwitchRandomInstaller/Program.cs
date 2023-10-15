@@ -3,13 +3,27 @@ using MediaDevices;
 using SwitchWpd;
 
 //序列号
-var SerialNumber = Environment.GetEnvironmentVariable("SWITCH_ID") ?? "XKC10008452541" ?? Random.Shared.NextInt64().ToString();
+var SerialNumber = Environment.GetEnvironmentVariable("SWITCH_ID");
+if (SerialNumber == null)
+{
+    throw new ArgumentNullException("Need SWITCH_ID");
+}
+Console.WriteLine($"SWITCH ID : \t {SerialNumber}");
 
-TilesManager.Root = "E:\\switch";
+TilesManager.Root = "G:\\switch";
+Console.WriteLine($"Game Root : \t {TilesManager.Root}");
+
+
+var env_disk_target = Environment.GetEnvironmentVariable("DISK_TARGET");
+DiskTarget diskTarget = env_disk_target != null ? Enum.Parse<DiskTarget>(env_disk_target) : DiskTarget.SD;
+
+Console.WriteLine($"DiskTarget : \t {diskTarget}");
+
 TilesManager.EnumRoot();
 
 DBInfo.ReadGameDBInfo();
 
+bool last_failed = false;
 while (true)
 {
     using (var driver = MediaDevice.GetDevices().First(x =>
@@ -32,23 +46,27 @@ while (true)
                 {
                     // 创建另外一个update的信息
                     // TODO version更新需要处理
-                    var prefix = x.TileId.Substring(0, x.TileId.Length - 4);
+                    var prefix = x.TileId.Substring(0, x.TileId.Length - 3);
                     var info = TilesManager.Instance.AllGames.Find(g => g.tileid == x.TileId);
                     if (info != null)
                     {
-                        var upd_id = info.allTitleIds.First(id =>
-                      id.StartsWith(prefix));
-                        x.Version = "0";
-                        return new InstalledGameInfo[2]
+                        var upd_id = info.allTitleIds.FirstOrDefault(id =>
+                      id.StartsWith(prefix) && id != x.TileId);
+                        if (upd_id != null)
                         {
-                        x,
-                        new InstalledGameInfo
-                        {
-                            TileId = upd_id,
-                            Name=x.Name,
-                            Version = x.Version,
+                            x.Version = "0";
+                            return new InstalledGameInfo[2]
+                            {
+                                    x,
+                                    new InstalledGameInfo
+                                    {
+                                        TileId = upd_id,
+                                        Name=x.Name,
+                                        Version = x.Version,
+                                    }
+                                        };
                         }
-                        };
+
                     }
                 }
 
@@ -75,15 +93,49 @@ while (true)
                 }
                 return true;
             }).ToHashSet();
-
+            var count = 0;
             foreach (var id in target)
             {
+                count++;
                 var filename = TilesManager.Instance.tileId2Path[id];
-                var startTime = DateTime.Now;
-                Console.WriteLine($"[{startTime}][upload]\t{filename}");
-                driver.UploadFile(filename, DiskPath.Join(DiskPath.Type.SD_Card_install, Path.GetFileName(filename)));
-                Console.WriteLine($"[{DateTime.Now}][complete]\t {DateTime.Now - startTime}");
-                installed.Add(id);
+                try
+                {
+                    Console.WriteLine($"[{DateTime.Now}][{count}/{target.Count}][upload]\t{filename}");
+                    driver.UploadFile(filename, DiskPath.Join(diskTarget == DiskTarget.SD ? DiskPath.Type.SD_Card_install : DiskPath.Type.NAND_install, Path.GetFileName(filename)));
+                    installed.Add(id);
+                }
+                catch (System.IO.IOException e)
+                {
+                    if (e.Message.EndsWith("already exists"))
+                    {
+                        Console.WriteLine($"[WARN] SKIP GAME HAD INSTALLED!{DBInfo.GetChName(id)}");
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
+                catch (System.Runtime.InteropServices.COMException e)
+                {
+                    if ((uint)e.HResult == 0x80070070)
+                    {
+                        Console.WriteLine($"switch {diskTarget} 空间不足");
+                        if (diskTarget == DiskTarget.All)
+                        {
+                            Console.WriteLine("$ 准备切换到 nand");
+
+                            diskTarget = DiskTarget.Nand;
+                        }
+                        else
+                        {
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
             }
             Console.WriteLine("Complete!");
             return;
@@ -91,10 +143,18 @@ while (true)
         catch (System.Runtime.InteropServices.COMException e)
         {
             driver.ResetDevice();
-            if (e.HResult == 0x8007001)
+            if ((uint)e.HResult == 0x8007001)
             {
                 Console.WriteLine("switch 断开链接, 等待重试");
                 Thread.Sleep(1000);
+                last_failed = true;
+            }
+
+            else
+            {
+                Console.WriteLine("[ERROR] 重试失败了，是否继续?");
+                Console.Read();
+                last_failed = false;
             }
         }
         finally
@@ -103,3 +163,9 @@ while (true)
         }
     }
 }
+public enum DiskTarget
+{
+    All,
+    Nand,
+    SD,
+};

@@ -44,24 +44,33 @@ namespace SwitchWpd
         public string installer_path { get; } = DiskPath.Join(DiskPath.Type.SD_Card, "installer");
         public InstalledGameInfo[] ReadInstalledGames()
         {
-            var p = DiskPath.Join(DiskPath.Type.Installed_Games, "InstalledApplications.csv");
-            using (var ss = new MemoryStream())
+            try
             {
-                _device.DownloadFile(p, ss);
-                ss.Seek(0, SeekOrigin.Begin);
-                using (TextReader reader = new StreamReader(ss))
+                var p = DiskPath.Join(DiskPath.Type.Installed_Games, "InstalledApplications.csv");
+                using (var ss = new MemoryStream())
                 {
-                    var csvReader = new CsvHelper.CsvReader(reader, new CsvConfiguration(CultureInfo.InvariantCulture)
+                    _device.DownloadFile(p, ss);
+                    ss.Seek(0, SeekOrigin.Begin);
+                    using (TextReader reader = new StreamReader(ss))
                     {
-                        HasHeaderRecord = false,
-                    });
+                        var csvReader = new CsvHelper.CsvReader(reader, new CsvConfiguration(CultureInfo.InvariantCulture)
+                        {
+                            HasHeaderRecord = false,
+                        });
 
-                    return csvReader.GetRecords<InstalledGameInfo>().Select((x) =>
-                    {
-                        x.TileId = x.TileId.Substring(2);
-                        return x;
-                    }).ToHashSet().ToArray();
+                        installed = csvReader.GetRecords<InstalledGameInfo>().Select((x) =>
+                        {
+                            x.TileId = x.TileId.Substring(2);
+                            return x;
+                        }).ToHashSet().ToArray();
+                        return installed;
+                    }
                 }
+            }
+            catch (FileNotFoundException)
+            {
+                Console.WriteLine($"[WARN] Not install any game!");
+                return Array.Empty<InstalledGameInfo>();
             }
         }
         public string[] ReadTarget(string? target_file)
@@ -106,11 +115,14 @@ namespace SwitchWpd
                             }
                             catch (FormatException)
                             {
-                                if (TilesManager.Instance.TryGetTitleIdFilesByName(p, out string id))
+                                if (TilesManager.Instance.TryGetTitleIdFilesByName(p, out string[] ids))
                                 {
-                                    foreach (var item in TilesManager.Instance.EnumAppTileIdFilesID(id))
+                                    foreach (var id in ids)
                                     {
-                                        vals.Add(item);
+                                        foreach (var item in TilesManager.Instance.EnumAppTileIdFilesID(id))
+                                        {
+                                            vals.Add(item);
+                                        }
                                     }
                                     continue;
                                 }
@@ -126,7 +138,9 @@ namespace SwitchWpd
 
         public string[] CreateRandomGames()
         {
-            var left_memory = (long)FreeMem;
+            var left_memory = (long)(FreeMem * 1.5);
+
+            Console.WriteLine($"[INFO] Create Random Game List : Left Memory {left_memory / 1024 / 1024} MB");
 
             void KnuthDurstenfeldShuffle<T>(List<T> list)
             {
@@ -146,10 +160,16 @@ namespace SwitchWpd
 
             var installedIds = installed.Select(x => x.TileId).ToHashSet();
 
-            return games.Where(x => installedIds.Contains(x.tileid)).Where(x =>
+            return games.Where(x => !installedIds.Contains(x.tileid)).Where(x =>
             {
                 left_memory -= x.length;
-                return left_memory > 0;
+                if (left_memory > 0)
+                {
+                    var name = string.IsNullOrEmpty(x.ch_name) ? x.en_name : x.ch_name;
+                    Console.WriteLine($"[INFO][RANDOM] select {name} : {x.tileid}");
+                    return true;
+                }
+                return false;
             }).Select(g => g.tileid).ToArray();
         }
 
@@ -169,8 +189,6 @@ namespace SwitchWpd
         {
             if (!_device.IsConnected)
                 _device.Connect();
-
-            installed = ReadInstalledGames();
 
             Func<GameInfo, string> selector = x => x.TileId;
             var a = installed.Select(x => x.TileId);

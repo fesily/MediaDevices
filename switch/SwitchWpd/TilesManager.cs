@@ -1,28 +1,16 @@
-﻿using System.Globalization;
-using System.Numerics;
-
-namespace SwitchWpd
+﻿namespace SwitchWpd
 {
     public class TilesManager
     {
         public static string Root { get; set; }
         public static string? GetTileId(string filename) => Path.GetFileName(filename).Split('[', ']').Where((x) =>
         {
-            try
-            {
-                BigInteger o = BigInteger.Parse(x, NumberStyles.HexNumber);
-                return o > 0;
-            }
-            catch (FormatException)
-            {
-
-                return false;
-            }
+            return (x.Length == 16 || x.Length == 18) && x.All(char.IsAsciiHexDigit);
 
         }).FirstOrDefault();
         public static TilesManager Instance { get; set; }
         public Dictionary<string, string> en2TitleId { get; private set; }
-        public Dictionary<string, string> zh2TitleId { get; set; }
+        public Dictionary<string, string[]> zh2TitleId { get; set; }
         public Dictionary<string, string> tileId2Path { get; private set; }
         public Dictionary<string, string> AppTileId2Path { get; private set; }
         public List<RootGameInfo> AllGames { get; private set; }
@@ -80,7 +68,7 @@ namespace SwitchWpd
             }
 
             Dictionary<string, string> en2TitleId = games.Where(g => !string.IsNullOrEmpty(g.en_name)).ToDictionary(g => g.en_name, g => g.tileid);
-            Dictionary<string, string> zh2TitleId = games.Where(g => !string.IsNullOrEmpty(g.ch_name)).ToDictionary(g => g.ch_name, g => g.tileid); ;
+            Dictionary<string, string[]> zh2TitleId = games.Where(g => !string.IsNullOrEmpty(g.ch_name)).GroupBy(g => g.ch_name).ToDictionary(g => g.Key, g => g.Select(g1 => g1.tileid).ToArray()); ;
             Dictionary<string, string> AppTileId2Path = games.ToDictionary(g => g.tileid, g => g.dir_path);
 
             Instance = new TilesManager()
@@ -98,20 +86,25 @@ namespace SwitchWpd
             {
                 return EnumerateFiles(dir).Select(GetTileId);
             }
-            Console.WriteLine($"[ERROR] NO GAME!{DBInfo.GetChName(tileId)}");
+            Console.WriteLine($"[ERROR] NO GAME!{DBInfo.GetChName(tileId)}:{tileId}");
             return Array.Empty<string>();
         }
-        public bool TryGetTitleIdFilesByName(string name, out string titleId)
+        public bool TryGetTitleIdFilesByName(string name, out string[] ids)
         {
             Func<string, int> match_score = x => x.Intersect(name).Count(c => !char.IsSeparator(c));
-            var info = TilesManager.Instance.zh2TitleId.OrderByDescending(x => match_score(x.Key)).First();
-            if (match_score(info.Key) > 2)
+            var infos = TilesManager.Instance.zh2TitleId.OrderByDescending(x => match_score(x.Key)).Take(5).OrderBy(x =>
             {
-                Console.WriteLine($"{name} matched {info.Key}, try use {info.Value}");
-                titleId = info.Value;
+                var i = x.Key.IndexOf(name[0]);
+                return i == -1 ? 99999 : i;
+            }).ToArray();
+            var info = infos[0];
+            if (match_score(info.Key) == name.Intersect(name).Where(c => !char.IsSeparator(c)).Count())
+            {
+                Console.WriteLine($"{name} matched {info.Key}, try use {Path.Join(info.Value)}");
+                ids = info.Value;
                 return true;
             }
-            titleId = "";
+            ids = Array.Empty<string>();
             return false;
         }
         public class RootGameInfo
