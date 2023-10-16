@@ -24,6 +24,7 @@ TilesManager.EnumRoot();
 DBInfo.ReadGameDBInfo();
 
 bool last_failed = false;
+List<string>? installed = null;
 while (true)
 {
     using (var driver = MediaDevice.GetDevices().First(x =>
@@ -40,23 +41,25 @@ while (true)
         {
             var @switch = new SwitchWpd.Switch(driver);
 
-            var installed = @switch.ReadInstalledGames().SelectMany(x =>
+            if (installed == null)
             {
-                if (x.Version != "" && int.Parse(x.Version) > 0)
+                installed = @switch.ReadInstalledGames().SelectMany(x =>
                 {
-                    // 创建另外一个update的信息
-                    // TODO version更新需要处理
-                    var prefix = x.TileId.Substring(0, x.TileId.Length - 3);
-                    var info = TilesManager.Instance.AllGames.Find(g => g.tileid == x.TileId);
-                    if (info != null)
+                    if (x.Version != "" && int.Parse(x.Version) > 0)
                     {
-                        var upd_id = info.allTitleIds.FirstOrDefault(id =>
-                      id.StartsWith(prefix) && id != x.TileId);
-                        if (upd_id != null)
+                        // 创建另外一个update的信息
+                        // TODO version更新需要处理
+                        var prefix = x.TileId.Substring(0, x.TileId.Length - 3);
+                        var info = TilesManager.Instance.AllGames.Find(g => g.tileid == x.TileId);
+                        if (info != null)
                         {
-                            x.Version = "0";
-                            return new InstalledGameInfo[2]
+                            var upd_id = info.allTitleIds.FirstOrDefault(id =>
+                          id.StartsWith(prefix) && id != x.TileId);
+                            if (upd_id != null)
                             {
+                                x.Version = "0";
+                                return new InstalledGameInfo[2]
+                                {
                                     x,
                                     new InstalledGameInfo
                                     {
@@ -64,14 +67,16 @@ while (true)
                                         Name=x.Name,
                                         Version = x.Version,
                                     }
-                                        };
+                                            };
+                            }
+
                         }
-
                     }
-                }
 
-                return new InstalledGameInfo[1] { x };
-            }).Select(x => x.TileId).ToList();
+                    return new InstalledGameInfo[1] { x };
+                }).Select(x => x.TileId).ToList();
+
+            }
 
             string[]? targettileids = null;
             try
@@ -93,6 +98,9 @@ while (true)
                 }
                 return true;
             }).ToHashSet();
+            long left_target_mb = target.Select(x => TilesManager.Instance.tileId2Path[x]).Sum(p => new FileInfo(p).Length) / 1024 / 1024;
+            long installed_mb = 0;
+            TimeSpan spentTime = new TimeSpan();
             var count = 0;
             foreach (var id in target)
             {
@@ -100,8 +108,11 @@ while (true)
                 var filename = TilesManager.Instance.tileId2Path[id];
                 try
                 {
-                    Console.WriteLine($"[{DateTime.Now}][{count}/{target.Count}][upload]\t{filename}");
+                    installed_mb += new FileInfo(filename).Length / 1024 / 1024;
+                    var start = DateTime.Now;
+                    Console.WriteLine($"[{start}][{count}/{target.Count}][{installed_mb}MB/{left_target_mb}MB][{(left_target_mb / installed_mb) * spentTime.Minutes}M][upload]\t{filename}");
                     driver.UploadFile(filename, DiskPath.Join(diskTarget == DiskTarget.SD ? DiskPath.Type.SD_Card_install : DiskPath.Type.NAND_install, Path.GetFileName(filename)));
+                    spentTime += DateTime.Now - start;
                     installed.Add(id);
                 }
                 catch (System.IO.IOException e)
@@ -152,8 +163,8 @@ while (true)
 
             else
             {
-                Console.WriteLine("[ERROR] 重试失败了，是否继续?");
-                Console.Read();
+                Console.WriteLine($"[ERROR] 失败{e.Message},等待5S");
+                Thread.Sleep(5000);
                 last_failed = false;
             }
         }
