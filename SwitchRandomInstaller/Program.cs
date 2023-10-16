@@ -10,7 +10,12 @@ if (SerialNumber == null)
 }
 Console.WriteLine($"SWITCH ID : \t {SerialNumber}");
 
-TilesManager.Root = "G:\\switch";
+TilesManager.Root = Environment.GetEnvironmentVariable("SWITCH_ROOT");
+if (TilesManager.Root == null)
+{
+    throw new Exception("Need SWITCH_ROOT");
+}
+
 Console.WriteLine($"Game Root : \t {TilesManager.Root}");
 
 

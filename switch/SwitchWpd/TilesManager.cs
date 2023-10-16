@@ -24,14 +24,6 @@
 
         public static void EnumRoot()
         {
-            if (Root == null)
-            {
-                Root = Environment.GetEnvironmentVariable("SWITCH_ROOT");
-                if (Root == null)
-                {
-                    throw new Exception("Need SWITCH_ROOT");
-                }
-            }
             List<RootGameInfo> games = new List<RootGameInfo>();
             Dictionary<string, string> TileId2Path = new Dictionary<string, string>();
             foreach (var dir in Directory.EnumerateDirectories(Root))
