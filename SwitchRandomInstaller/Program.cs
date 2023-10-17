@@ -41,6 +41,7 @@ while (true)
         {
             throw new NotConnectedException($"无法找到{SerialNumber}");
         }
+        Console.WriteLine($"FirmwareVersion: {driver.FirmwareVersion}");
         try
         {
             var @switch = new SwitchWpd.Switch(driver);

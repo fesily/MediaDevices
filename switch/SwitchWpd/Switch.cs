@@ -2,7 +2,6 @@
 using MediaDevices;
 using Microsoft.Extensions.Logging;
 using System.Globalization;
-using System.Numerics;
 using System.Text;
 
 namespace SwitchWpd
@@ -70,7 +69,8 @@ namespace SwitchWpd
             catch (FileNotFoundException)
             {
                 Console.WriteLine($"[WARN] Not install any game!");
-                return Array.Empty<InstalledGameInfo>();
+                installed = Array.Empty<InstalledGameInfo>();
+                return installed;
             }
         }
         public string[] ReadTarget(string? target_file)
@@ -80,65 +80,13 @@ namespace SwitchWpd
                 _device.DownloadFile(target_file ?? installer_path, ss);
                 ss.Seek(0, SeekOrigin.Begin);
                 var reader = new StreamReader(ss);
-                HashSet<string> vals = new HashSet<string>();
-                while (!reader.EndOfStream)
-                {
-                    var p = reader.ReadLine();
-                    if (p != null)
-                    {
-                        if (Directory.Exists(p))
-                        {
-                            var ids = TilesManager.EnumerateFiles(p)
-                                .Select(TilesManager.GetTileId);
-                            foreach (var item in ids)
-                            {
-                                vals.Add(item);
-                            }
-                        }
-                        else if (Path.Exists(p))
-                        {
-                            vals.Add(TilesManager.GetTileId(p));
-                        }
-                        else
-                        {
-                            try
-                            {
-                                BigInteger i = BigInteger.Parse(p, NumberStyles.HexNumber);
-                                if (i > 0)
-                                {
-                                    foreach (var item in TilesManager.Instance.EnumAppTileIdFilesID(p))
-                                    {
-                                        vals.Add(item);
-                                    }
-                                    continue;
-                                }
-                            }
-                            catch (FormatException)
-                            {
-                                if (TilesManager.Instance.TryGetTitleIdFilesByName(p, out string[] ids))
-                                {
-                                    foreach (var id in ids)
-                                    {
-                                        foreach (var item in TilesManager.Instance.EnumAppTileIdFilesID(id))
-                                        {
-                                            vals.Add(item);
-                                        }
-                                    }
-                                    continue;
-                                }
-                            }
-
-                            Console.WriteLine($"unkown item : {p}");
-                        }
-                    }
-                }
-                return vals.ToArray();
+                return ReadTargetHelper.ReadTargetFromStream(reader);
             }
         }
 
         public string[] CreateRandomGames()
         {
-            var left_memory = (long)(FreeMem * 1.5);
+            var left_memory = (long)FreeMem;
 
             Console.WriteLine($"[INFO] Create Random Game List : Left Memory {left_memory / 1024 / 1024} MB");
 
