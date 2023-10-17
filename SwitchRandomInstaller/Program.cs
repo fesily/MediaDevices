@@ -28,7 +28,6 @@ TilesManager.EnumRoot();
 
 DBInfo.ReadGameDBInfo();
 
-bool last_failed = false;
 List<string>? installed = null;
 while (true)
 {
@@ -103,7 +102,7 @@ while (true)
                 }
                 return true;
             }).ToHashSet();
-            long left_target_mb = target.Select(x => TilesManager.Instance.tileId2Path[x]).Sum(p => new FileInfo(p).Length) / 1024 / 1024;
+            long target_mb = target.Select(x => TilesManager.Instance.tileId2Path[x]).Sum(p => new FileInfo(p).Length) / 1024 / 1024;
             long installed_mb = 0;
             TimeSpan spentTime = new TimeSpan();
             var count = 0;
@@ -115,7 +114,7 @@ while (true)
                 {
                     installed_mb += new FileInfo(filename).Length / 1024 / 1024;
                     var start = DateTime.Now;
-                    Console.WriteLine($"[{start}][{count}/{target.Count}][{installed_mb}MB/{left_target_mb}MB][{(left_target_mb / installed_mb) * spentTime.Minutes}M][upload]\t{filename}");
+                    Console.WriteLine($"[{start}][{count}/{target.Count}][{installed_mb}MB/{target_mb}MB][upload]\t{filename}\t[{(target_mb - installed_mb) / (installed_mb / spentTime.TotalSeconds) / 60}M]");
                     driver.UploadFile(filename, DiskPath.Join(diskTarget == DiskTarget.SD ? DiskPath.Type.SD_Card_install : DiskPath.Type.NAND_install, Path.GetFileName(filename)));
                     spentTime += DateTime.Now - start;
                     installed.Add(id);
@@ -158,19 +157,16 @@ while (true)
         }
         catch (System.Runtime.InteropServices.COMException e)
         {
-            driver.ResetDevice();
             if ((uint)e.HResult == 0x8007001)
             {
                 Console.WriteLine("switch 断开链接, 等待重试");
                 Thread.Sleep(1000);
-                last_failed = true;
             }
 
             else
             {
                 Console.WriteLine($"[ERROR] 失败{e.Message},等待5S");
                 Thread.Sleep(5000);
-                last_failed = false;
             }
         }
         finally
