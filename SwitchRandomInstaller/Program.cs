@@ -28,7 +28,6 @@ TilesManager.EnumRoot();
 
 DBInfo.ReadGameDBInfo();
 
-List<string>? installed = null;
 while (true)
 {
     using (var driver = MediaDevice.GetDevices().First(x =>
@@ -46,25 +45,23 @@ while (true)
         {
             var @switch = new SwitchWpd.Switch(driver);
 
-            if (installed == null)
-            {
-                installed = @switch.ReadInstalledGames().SelectMany(x =>
-                {
-                    if (x.Version != "" && int.Parse(x.Version) > 0)
-                    {
-                        // 创建另外一个update的信息
-                        // TODO version更新需要处理
-                        var prefix = x.TileId.Substring(0, x.TileId.Length - 3);
-                        var info = TilesManager.Instance.AllGames.Find(g => g.tileid == x.TileId);
-                        if (info != null)
-                        {
-                            var upd_id = info.allTitleIds.FirstOrDefault(id =>
-                          id.StartsWith(prefix) && id != x.TileId);
-                            if (upd_id != null)
-                            {
-                                x.Version = "0";
-                                return new InstalledGameInfo[2]
-                                {
+            var installed = @switch.ReadInstalledGames().SelectMany(x =>
+             {
+                 if (x.Version != "" && int.Parse(x.Version) > 0)
+                 {
+                     // 创建另外一个update的信息
+                     // TODO version更新需要处理
+                     var prefix = x.TileId.Substring(0, x.TileId.Length - 3);
+                     var info = TilesManager.Instance.AllGames.Find(g => g.tileid == x.TileId);
+                     if (info != null)
+                     {
+                         var upd_id = info.allTitleIds.FirstOrDefault(id =>
+                       id.StartsWith(prefix) && id != x.TileId);
+                         if (upd_id != null)
+                         {
+                             x.Version = "0";
+                             return new InstalledGameInfo[2]
+                             {
                                     x,
                                     new InstalledGameInfo
                                     {
@@ -72,16 +69,14 @@ while (true)
                                         Name=x.Name,
                                         Version = x.Version,
                                     }
-                                            };
-                            }
+                                         };
+                         }
 
-                        }
-                    }
+                     }
+                 }
 
-                    return new InstalledGameInfo[1] { x };
-                }).Select(x => x.TileId).ToList();
-
-            }
+                 return new InstalledGameInfo[1] { x };
+             }).Select(x => x.TileId).ToList();
 
             string[]? targettileids = null;
             try
@@ -158,17 +153,9 @@ while (true)
         }
         catch (System.Runtime.InteropServices.COMException e)
         {
-            if ((uint)e.HResult == 0x8007001)
-            {
-                Console.WriteLine("switch 断开链接, 等待重试");
-                Thread.Sleep(1000);
-            }
-
-            else
-            {
-                Console.WriteLine($"[ERROR] 失败{e.Message},等待5S");
-                Thread.Sleep(5000);
-            }
+            Switch.Reset(driver.PnPDeviceID);
+            Console.WriteLine($"[ERROR] 失败{e.Message},等待5S");
+            Thread.Sleep(5000);
         }
         finally
         {

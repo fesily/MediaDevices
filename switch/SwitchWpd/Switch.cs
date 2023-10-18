@@ -2,6 +2,7 @@
 using MediaDevices;
 using Microsoft.Extensions.Logging;
 using System.Globalization;
+using System.Management;
 using System.Text;
 
 namespace SwitchWpd
@@ -170,6 +171,35 @@ namespace SwitchWpd
         public void Dispose()
         {
             _device.Dispose();
+        }
+
+        public static void Reset(string PnPDeviceID)
+        {
+            var device = GetDevice(PnPDeviceID);
+            if (device != null)
+            {
+                device.InvokeMethod("Disable", new object[] { false });
+                device.InvokeMethod("Enable", new object[] { false });
+            }
+        }
+        static ManagementObject? GetDevice(string pnpId)
+        {
+            ManagementObjectSearcher searcher = new ManagementObjectSearcher(@"SELECT * FROM Win32_PnPEntity");
+            ManagementObjectCollection collection = searcher.Get();
+
+            foreach (ManagementObject device in collection)
+            {
+                var v = device.Properties["DeviceID"].Value;
+                if (v != null)
+                {
+                    var deviceID = v.ToString().ToLower().Replace('\\', '#');
+                    if (pnpId.IndexOf(deviceID, StringComparison.OrdinalIgnoreCase) != -1)
+                    {
+                        return device;
+                    }
+                }
+            }
+            return null;
         }
     }
 }
