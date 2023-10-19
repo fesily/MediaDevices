@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 
 namespace SwitchWpd
 {
-    public static class ReadTargetHelper
+    public class ReadTargetHelper
     {
         private static string PathRoot { get; } = Path.GetFullPath(TilesManager.Root).ToLower();
         public static bool IsMultiDirLine(string p)
@@ -26,10 +26,12 @@ namespace SwitchWpd
             }
             return count > 1;
         }
-
-        public static string[] ReadTargetFromStream(StreamReader reader)
+        public HashSet<string> appIds = new HashSet<string>();
+        HashSet<string> vals = new HashSet<string>();
+        public int MissCount { get; private set; } = 0;
+        public bool NeedUpdate { get; private set; } = false;
+        public string[] ReadTargetFromStream(StreamReader reader)
         {
-            HashSet<string> vals = new HashSet<string>();
             while (!reader.EndOfStream)
             {
                 var p = reader.ReadLine();
@@ -37,14 +39,18 @@ namespace SwitchWpd
                 {
                     if (IsMultiDirLine(p))
                     {
+                        NeedUpdate = true;
                         ReadMultiDir(vals, p);
                     }
                     else if (Directory.Exists(p))
                     {
+                        NeedUpdate = true;
+                        appIds.Add(p);
                         FromDir(vals, p);
                     }
                     else if (Path.Exists(p))
                     {
+                        appIds.Add(p);
                         vals.Add(TilesManager.GetTileId(p));
                     }
                     else
@@ -54,6 +60,8 @@ namespace SwitchWpd
                             BigInteger i = BigInteger.Parse(p, NumberStyles.HexNumber);
                             if (i > 0)
                             {
+                                p = i.ToString("X");
+                                appIds.Add(p);
                                 foreach (var item in TilesManager.Instance.EnumAppTileIdFilesID(p))
                                 {
                                     vals.Add(item);
@@ -65,8 +73,10 @@ namespace SwitchWpd
                         {
                             if (TilesManager.Instance.TryGetTitleIdFilesByName(p, out string[] ids))
                             {
+                                NeedUpdate = true;
                                 foreach (var id in ids)
                                 {
+                                    appIds.Add(id);
                                     foreach (var item in TilesManager.Instance.EnumAppTileIdFilesID(id))
                                     {
                                         vals.Add(item);
@@ -77,6 +87,8 @@ namespace SwitchWpd
                         }
 
                         Console.WriteLine($"unkown item : {p}");
+                        appIds.Add(p);
+                        MissCount++;
                     }
                 }
             }
@@ -84,12 +96,13 @@ namespace SwitchWpd
 
         }
 
-        private static void FromDir(HashSet<string> vals, string? p)
+        private void FromDir(HashSet<string> vals, string? p)
         {
             if (!Directory.Exists(p))
             {
                 throw new DirectoryNotFoundException(p);
             }
+            appIds.Add(p);
             Console.WriteLine($"Read Target from {p}");
             var ids = TilesManager.EnumerateFiles(p).Select(TilesManager.GetTileId);
             foreach (var item in ids)
@@ -98,7 +111,7 @@ namespace SwitchWpd
             }
         }
 
-        public static void ReadMultiDir(HashSet<string> vals, string p)
+        public void ReadMultiDir(HashSet<string> vals, string p)
         {
             char split = '\\';
             // 特殊模式 复制很多个目录

@@ -2,7 +2,7 @@
 {
     public class TilesManager
     {
-        public static string Root { get; set; }
+        public static string Root { get; private set; } = Config.Root;
         public static string? GetTileId(string filename) => Path.GetFileName(filename).Split('[', ']').Where((x) =>
         {
             return (x.Length == 16 || x.Length == 18) && x.All(char.IsAsciiHexDigit);
@@ -89,12 +89,15 @@
                 var i = x.Key.IndexOf(name[0]);
                 return i == -1 ? 99999 : i;
             }).ToArray();
-            var info = infos[0];
-            if (match_score(info.Key) == name.Intersect(name).Where(c => !char.IsSeparator(c)).Count())
+
+            foreach (var info in infos)
             {
-                Console.WriteLine($"{name} matched {info.Key}, try use {Path.Join(info.Value)}");
-                ids = info.Value;
-                return true;
+                if (match_score(info.Key) == name.Intersect(name).Where(c => !char.IsSeparator(c)).Count())
+                {
+                    Console.WriteLine($"{name} matched {info.Key}, try use {Path.Join(info.Value)}");
+                    ids = info.Value;
+                    return true;
+                }
             }
             ids = Array.Empty<string>();
             return false;

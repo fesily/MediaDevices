@@ -41,8 +41,8 @@ namespace SwitchWpd
             ID = _device.DeviceId;
         }
         public const string hash_name = "installer_hash";
-        public string installer_path { get; } = DiskPath.Join(DiskPath.Type.SD_Card, "installer");
-        public InstalledGameInfo[] ReadInstalledGames()
+        public string installer_path { get; private set; } = DiskPath.Join(DiskPath.Type.SD_Card, "installer");
+        private InstalledGameInfo[] ReadInstalledGameFile()
         {
             try
             {
@@ -74,15 +74,69 @@ namespace SwitchWpd
                 return installed;
             }
         }
+        public IEnumerable<InstalledGameInfo> ReadInstalledGames()
+        {
+            return ReadInstalledGameFile().SelectMany(x =>
+            {
+                if (x.Version != "" && int.Parse(x.Version) > 0)
+                {
+                    // 创建另外一个update的信息
+                    // TODO version更新需要处理
+                    var prefix = x.TileId.Substring(0, x.TileId.Length - 3);
+                    var info = TilesManager.Instance.AllGames.Find(g => g.tileid == x.TileId);
+                    if (info != null)
+                    {
+                        var upd_id = info.allTitleIds.FirstOrDefault(id =>
+                      id.StartsWith(prefix) && id != x.TileId);
+                        if (upd_id != null)
+                        {
+                            x.Version = "0";
+                            return new InstalledGameInfo[2]
+                            {
+                                    x,
+                                    new InstalledGameInfo
+                                    {
+                                        TileId = upd_id,
+                                        Name=x.Name,
+                                        Version = x.Version,
+                                    }
+                                        };
+                        }
+
+                    }
+                }
+
+                return new InstalledGameInfo[1] { x };
+            });
+        }
+        public bool FindAllTarget { get; private set; } = false;
         public string[] ReadTarget(string? target_file)
         {
             using (var ss = new MemoryStream())
             {
-                _device.DownloadFile(target_file ?? installer_path, ss);
+                if (target_file != null)
+                    installer_path = target_file;
+                _device.DownloadFile(installer_path, ss);
                 ss.Seek(0, SeekOrigin.Begin);
                 var reader = new StreamReader(ss);
-                return ReadTargetHelper.ReadTargetFromStream(reader);
+                var helper = new ReadTargetHelper();
+                var rets = helper.ReadTargetFromStream(reader);
+                foreach (var id in helper.appIds)
+                {
+                    Console.WriteLine($"Use App :{DBInfo.GetChName(id)}");
+                }
+                if (helper.NeedUpdate)
+                {
+                    WriteTargetFile(helper.appIds.ToArray());
+                }
+                FindAllTarget = helper.MissCount == 0;
+                return rets;
             }
+        }
+
+        public void CompleteTarget()
+        {
+            _device.DeleteFile(installer_path);
         }
 
         public string[] CreateRandomGames()
@@ -131,6 +185,7 @@ namespace SwitchWpd
             }
             using (var ss = new MemoryStream(Encoding.Default.GetBytes(builder.ToString())))
             {
+                _device.DeleteFile(installer_path);
                 _device.UploadFile(ss, installer_path);
             }
         }
