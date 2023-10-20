@@ -5,7 +5,11 @@ using SwitchWpd;
 var SerialNumber = Config.SWITCH_ID;
 if (SerialNumber == null)
 {
-    throw new ArgumentNullException("Need SWITCH_ID");
+    var default_switch = MediaDevice.GetDevices().FirstOrDefault(x => x.FriendlyName == "Switch");
+    if (default_switch == null)
+        throw new ArgumentNullException("Need SWITCH_ID");
+    default_switch.Connect();
+    SerialNumber = default_switch.SerialNumber;
 }
 Console.WriteLine($"SWITCH ID : \t {SerialNumber}");
 
