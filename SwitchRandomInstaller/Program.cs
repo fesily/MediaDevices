@@ -36,6 +36,7 @@ for (int i = 0; i < 64; i++)
 {
     using (var driver = MediaDevice.GetDevices().First(x =>
     {
+        if (x.FriendlyName != "Switch") return false;
         x.Connect();
         return x.SerialNumber == SerialNumber;
     }))

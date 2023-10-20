@@ -60,7 +60,6 @@ namespace SwitchWpd
                             BigInteger i = BigInteger.Parse(p, NumberStyles.HexNumber);
                             if (i > 0)
                             {
-                                p = i.ToString("X");
                                 appIds.Add(p);
                                 foreach (var item in TilesManager.Instance.EnumAppTileIdFilesID(p))
                                 {
