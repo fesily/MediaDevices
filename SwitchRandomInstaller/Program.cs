@@ -1,17 +1,6 @@
 ﻿// See https://aka.ms/new-console-template for more information
 using MediaDevices;
 using SwitchWpd;
-//序列号
-var SerialNumber = Config.SWITCH_ID;
-if (SerialNumber == null)
-{
-    var default_switch = MediaDevice.GetDevices().FirstOrDefault(x => x.FriendlyName == "Switch");
-    if (default_switch == null)
-        throw new ArgumentNullException("Need SWITCH_ID");
-    default_switch.Connect();
-    SerialNumber = default_switch.SerialNumber;
-}
-Console.WriteLine($"SWITCH ID : \t {SerialNumber}");
 
 if (TilesManager.Root == null)
 {
@@ -32,110 +21,159 @@ TilesManager.EnumRoot();
 
 DBInfo.ReadGameDBInfo();
 
-for (int i = 0; i < 64; i++)
+//序列号
+var SerialNumber = Config.SWITCH_ID;
+if (SerialNumber == null)
 {
-    using (var driver = MediaDevice.GetDevices().First(x =>
+    SerialNumber = MediaDevice.GetDevices().First(x =>
     {
         if (x.FriendlyName != "Switch") return false;
         x.Connect();
-        return x.SerialNumber == SerialNumber;
-    }))
+        return !Mutex.TryOpenExisting(x.SerialNumber, out Mutex? _);
+    })?.SerialNumber;
+    if (SerialNumber == null)
     {
-        if (driver == null)
+        Console.WriteLine("can't find any switch");
+        return;
+    }
+}
+Console.WriteLine($"SWITCH ID : \t {SerialNumber}");
+
+StartOne(SerialNumber);
+
+void StartOne(string SerialNumber)
+{
+    var mtx = new Mutex(false, SerialNumber);
+   
+    if (!mtx.WaitOne(1000))
+    {
+        Console.WriteLine($"[WARN]{SerialNumber} Can't get mutex");
+        return;
+    }
+    try
+    {
+
+        var faliedList = new Dictionary<string, int>();
+
+        for (int i = 0; i < 64; i++)
         {
-            throw new NotConnectedException($"无法找到{SerialNumber}");
-        }
-        Console.WriteLine($"FirmwareVersion: {driver.FirmwareVersion}");
-        try
-        {
-            var @switch = new Switch(driver);
-
-            var installed = @switch.ReadInstalledGames().Select(x => x.TileId).ToList();
-
-            if (NeedRandomInstaller)
+            using (var driver = MediaDevice.GetDevices().First(x =>
             {
-                var ran = @switch.CreateRandomGames();
-                @switch.WriteTargetFile(ran);
-            }
-            var targettileids = @switch.ReadTarget(Environment.GetEnvironmentVariable("TARGET_FILE"));
-
-            var target = targettileids.Where(x =>
+                if (x.FriendlyName != "Switch") return false;
+                x.Connect();
+                return x.SerialNumber == SerialNumber;
+            }))
             {
-                if (installed != null && installed.Contains(x))
+                if (driver == null)
                 {
-                    Console.WriteLine($"[WARN] SKIP GAME HAD INSTALLED!{DBInfo.GetChName(x)}");
-                    return false;
+                    throw new NotConnectedException($"无法找到{SerialNumber}");
                 }
-                return true;
-            }).ToHashSet();
-
-            long target_mb = target.Select(x => TilesManager.Instance.tileId2Path[x]).Sum(p => new FileInfo(p).Length) / 1024 / 1024;
-            long installed_mb = 0;
-            TimeSpan spentTime = new TimeSpan();
-            var count = 0;
-            foreach (var id in target)
-            {
-                count++;
-                var filename = TilesManager.Instance.tileId2Path[id];
+                Console.WriteLine($"FirmwareVersion: {driver.FirmwareVersion}");
                 try
                 {
-                    var start = DateTime.Now;
-                    Console.WriteLine($"[{start}][{count}/{target.Count}][{installed_mb}MB/{target_mb}MB][upload]\t{filename}\t[{(target_mb - installed_mb) / (installed_mb / spentTime.TotalSeconds) / 60}M]");
-                    driver.UploadFile(filename, DiskPath.Join(diskTarget == DiskTarget.SD ? DiskPath.Type.SD_Card_install : DiskPath.Type.NAND_install, Path.GetFileName(filename)));
-                    spentTime += DateTime.Now - start;
-                    installed_mb += new FileInfo(filename).Length / 1024 / 1024;
-                    installed.Add(id);
-                }
-                catch (System.IO.IOException e)
-                {
-                    if (e.Message.EndsWith("already exists"))
+                    var @switch = new Switch(driver);
+
+                    var installed = @switch.ReadInstalledGames().Select(x => x.TileId).ToList();
+
+                    if (NeedRandomInstaller)
                     {
-                        Console.WriteLine($"[WARN] SKIP GAME HAD INSTALLED!{DBInfo.GetChName(id)}");
+                        var ran = @switch.CreateRandomGames();
+                        @switch.WriteTargetFile(ran);
                     }
-                    else
+                    var targettileids = @switch.ReadTarget(Environment.GetEnvironmentVariable("TARGET_FILE"));
+
+                    var target = targettileids.Where(x =>
                     {
-                        throw;
+                        if (installed != null && installed.Contains(x))
+                        {
+                            Console.WriteLine($"[WARN] SKIP GAME HAD INSTALLED!{DBInfo.GetName(x)}");
+                            return false;
+                        }
+                        return true;
+                    }).ToHashSet().ToList();
+
+                    long target_mb = target.Select(x => TilesManager.Instance.tileId2Path[x]).Sum(p => new FileInfo(p).Length) / 1024 / 1024;
+                    long installed_mb = 0;
+                    TimeSpan spentTime = new TimeSpan();
+                    var count = 0;
+                    foreach (var id in target)
+                    {
+                        if (faliedList.ContainsKey(id) && faliedList[id] >= 2)
+                        {
+                            Console.WriteLine($"[WARN] SKIP FAILED GAME: {DBInfo.GetName(id)}");
+                            continue;
+                        }
+                        count++;
+                        var filename = TilesManager.Instance.tileId2Path[id];
+                        try
+                        {
+                            var start = DateTime.Now;
+                            Console.WriteLine($"[{start}][{count}/{target.Count}][{installed_mb}MB/{target_mb}MB][upload]\t{filename}\t[{(target_mb - installed_mb) / (installed_mb / spentTime.TotalSeconds) / 60}M]");
+                            driver.UploadFile(filename, DiskPath.Join(diskTarget == DiskTarget.SD ? DiskPath.Type.SD_Card_install : DiskPath.Type.NAND_install, Path.GetFileName(filename)));
+                            spentTime += DateTime.Now - start;
+                            installed_mb += new FileInfo(filename).Length / 1024 / 1024;
+                            installed.Add(id);
+                        }
+                        catch (System.IO.IOException e)
+                        {
+                            if (e.Message.EndsWith("already exists"))
+                            {
+                                Console.WriteLine($"[WARN] SKIP GAME HAD INSTALLED!{DBInfo.GetName(id)}");
+                            }
+                            else
+                            {
+                                throw;
+                            }
+                        }
+                        catch (System.Runtime.InteropServices.COMException e)
+                        {
+                            if ((uint)e.HResult == 0x80070070)
+                            {
+                                Console.WriteLine($"switch {diskTarget} 空间不足");
+                                if (diskTarget == DiskTarget.All)
+                                {
+                                    Console.WriteLine("$ 准备切换到 nand");
+
+                                    diskTarget = DiskTarget.Nand;
+                                }
+                                else
+                                {
+                                    return;
+                                }
+                            }
+                            else
+                            {
+                                if (faliedList.ContainsKey(id))
+                                    faliedList[id]++;
+                                else
+                                    faliedList.Add(id, 1);
+                                throw;
+                            }
+                        }
                     }
+                    Console.WriteLine("Complete!");
+                    if (@switch.FindAllTarget)
+                    {
+                        @switch.CompleteTarget();
+                    }
+                    return;
                 }
                 catch (System.Runtime.InteropServices.COMException e)
                 {
-                    if ((uint)e.HResult == 0x80070070)
-                    {
-                        Console.WriteLine($"switch {diskTarget} 空间不足");
-                        if (diskTarget == DiskTarget.All)
-                        {
-                            Console.WriteLine("$ 准备切换到 nand");
-
-                            diskTarget = DiskTarget.Nand;
-                        }
-                        else
-                        {
-                            return;
-                        }
-                    }
-                    else
-                    {
-                        throw;
-                    }
+                    Switch.Reset(driver.PnPDeviceID);
+                    float ms = 5000 + (int)(i * Random.Shared.NextSingle());
+                    Console.WriteLine($"[ERROR] 失败{e.Message},等待{ms / 1000}S");
+                    Thread.Sleep((int)ms);
+                }
+                finally
+                {
+                    driver.Disconnect();
                 }
             }
-            Console.WriteLine("Complete!");
-            if (@switch.FindAllTarget)
-            {
-                @switch.CompleteTarget();
-            }
-            return;
         }
-        catch (System.Runtime.InteropServices.COMException e)
-        {
-            Switch.Reset(driver.PnPDeviceID);
-            float ms = 5000 + (int)(i * Random.Shared.NextSingle());
-            Console.WriteLine($"[ERROR] 失败{e.Message},等待{ms / 1000}S");
-            Thread.Sleep((int)ms);
-        }
-        finally
-        {
-            driver.Disconnect();
-        }
+    }
+    finally
+    {
+        mtx.ReleaseMutex();
     }
 }

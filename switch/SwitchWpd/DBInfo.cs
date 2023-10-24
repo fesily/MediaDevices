@@ -1,5 +1,6 @@
 ﻿using CsvHelper.Configuration;
 using CsvHelper.Configuration.Attributes;
+using SwitchWpd;
 using System.Globalization;
 
 public class DBInfo
@@ -27,7 +28,7 @@ public class DBInfo
     public static List<DBInfo> infos { get; private set; }
     public static void ReadGameDBInfo()
     {
-        using (var ss = new FileStream(Path.Join(Directory.GetCurrentDirectory(), "db.csv"), FileMode.Open))
+        using (var ss = new FileStream(Config.GetConfig("SWITCH_DB") ?? Path.Join(Directory.GetCurrentDirectory(), "db.csv"), FileMode.Open))
         {
             using (TextReader reader = new StreamReader(ss))
             {
@@ -36,8 +37,9 @@ public class DBInfo
             }
         }
     }
-    public static string GetChName(string id)
+    public static string GetName(string id)
     {
-        return infos.Find(x => x.TitleID == id)?.CH_NAME ?? id;
+        var info = infos.Find(x => x.TitleID == id);
+        return info?.CH_NAME ?? info?.Name ?? id;
     }
 }

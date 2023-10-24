@@ -123,7 +123,7 @@ namespace SwitchWpd
                 var rets = helper.ReadTargetFromStream(reader);
                 foreach (var id in helper.appIds)
                 {
-                    Console.WriteLine($"Use App :{DBInfo.GetChName(id)}");
+                    Console.WriteLine($"Use App :{DBInfo.GetName(id)}");
                 }
                 if (helper.NeedUpdate)
                 {
@@ -138,26 +138,26 @@ namespace SwitchWpd
         {
             _device.DeleteFile(installer_path);
         }
-
+        public static void KnuthDurstenfeldShuffle<T>(List<T> list)
+        {
+            //随机交换
+            int currentIndex;
+            T tempValue;
+            for (int i = 0; i < list.Count; i++)
+            {
+                currentIndex = Random.Shared.Next(list.Count - i);
+                tempValue = list[currentIndex];
+                list[currentIndex] = list[list.Count - 1 - i];
+                list[list.Count - 1 - i] = tempValue;
+            }
+        }
         public string[] CreateRandomGames()
         {
             var left_memory = (long)FreeMem;
 
             Console.WriteLine($"[INFO] Create Random Game List : Left Memory {left_memory / 1024 / 1024} MB");
 
-            void KnuthDurstenfeldShuffle<T>(List<T> list)
-            {
-                //随机交换
-                int currentIndex;
-                T tempValue;
-                for (int i = 0; i < list.Count; i++)
-                {
-                    currentIndex = Random.Shared.Next(list.Count - i);
-                    tempValue = list[currentIndex];
-                    list[currentIndex] = list[list.Count - 1 - i];
-                    list[list.Count - 1 - i] = tempValue;
-                }
-            }
+           
             var games = TilesManager.Instance.AllGames.ToList();
             KnuthDurstenfeldShuffle(games);
 

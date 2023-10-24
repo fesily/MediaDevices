@@ -78,7 +78,7 @@
             {
                 return EnumerateFiles(dir).Select(GetTileId);
             }
-            Console.WriteLine($"[ERROR] NO GAME!{DBInfo.GetChName(tileId)}:{tileId}");
+            Console.WriteLine($"[ERROR] NO GAME!{DBInfo.GetName(tileId)}:{tileId}");
             return Array.Empty<string>();
         }
         public bool TryGetTitleIdFilesByName(string name, out string[] ids)

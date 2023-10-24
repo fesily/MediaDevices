@@ -9,7 +9,7 @@ namespace SwitchWpd
         static Config()
         {
             var parser = new FileIniDataParser();
-            IniData = parser.ReadFile("config.ini");
+            IniData = parser.ReadFile(Environment.GetEnvironmentVariable("CONFIG_PATH")?? "config.ini");
         }
         public static string GetConfig(string key) => Environment.GetEnvironmentVariable(key) ?? InitDataDefault[key];
         public static string Root => GetConfig("SWITCH_ROOT");

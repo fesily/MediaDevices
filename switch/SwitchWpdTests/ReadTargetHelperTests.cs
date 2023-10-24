@@ -8,8 +8,6 @@ namespace SwitchWpd.Tests
         [TestInitialize]
         public void SetRoot()
         {
-            TilesManager.Root = "G:\\switch";
-        }
         [TestMethod()]
         public void ReadMultiDirTest()
         {
