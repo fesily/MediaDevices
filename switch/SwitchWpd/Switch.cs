@@ -127,7 +127,7 @@ namespace SwitchWpd
                 }
                 if (helper.NeedUpdate)
                 {
-                    WriteTargetFile(helper.appIds.ToArray());
+                    WriteTargetFile(helper.appIds.ToArray(), true);
                 }
                 FindAllTarget = helper.MissCount == 0;
                 return rets;
@@ -157,7 +157,7 @@ namespace SwitchWpd
 
             Console.WriteLine($"[INFO] Create Random Game List : Left Memory {left_memory / 1024 / 1024} MB");
 
-           
+
             var games = TilesManager.Instance.AllGames.ToList();
             KnuthDurstenfeldShuffle(games);
 
@@ -176,7 +176,7 @@ namespace SwitchWpd
             }).Select(g => g.tileid).ToArray();
         }
 
-        public void WriteTargetFile(string[] ids)
+        public void WriteTargetFile(string[] ids, bool delete_old)
         {
             var builder = new StringBuilder();
             foreach (var item in ids)
@@ -185,7 +185,8 @@ namespace SwitchWpd
             }
             using (var ss = new MemoryStream(Encoding.Default.GetBytes(builder.ToString())))
             {
-                _device.DeleteFile(installer_path);
+                if (delete_old)
+                    _device.DeleteFile(installer_path);
                 _device.UploadFile(ss, installer_path);
             }
         }
