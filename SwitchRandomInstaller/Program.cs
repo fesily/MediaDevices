@@ -3,12 +3,12 @@ using MediaDevices;
 using SwitchWpd;
 using System.Diagnostics;
 
-if (TilesManager.Root == null)
+if (Config.Roots == null || Config.Roots.Length == 0)
 {
     throw new Exception("Need SWITCH_ROOT");
 }
 
-Console.WriteLine($"Game Root : \t {TilesManager.Root}");
+Console.WriteLine($"Game Root : \t {Config.Roots}");
 
 
 DiskTarget diskTarget = Config.DISK_TARGET;
@@ -104,20 +104,33 @@ void StartOne(MediaDevice device, string SerialNumber)
 
                 var installed = @switch.ReadInstalledGames().Select(x => x.TileId).ToList();
 
+                string[]? targetIDs = null;
+                try
+                {
+                    targetIDs = @switch.ReadTarget(Environment.GetEnvironmentVariable("TARGET_FILE"));
+                }
+                catch (FileNotFoundException)
+                {
+                    if (!NeedRandomInstaller)
+                    {
+                        throw;
+                    }
+                }
+
                 if (NeedRandomInstaller)
                 {
-                    var ran = @switch.CreateRandomGames();
+                    var ran = @switch.CreateRandomGames(@switch.AppIds?.ToArray());
                     try
                     {
-                        @switch.WriteTargetFile(ran, false);
+                        @switch.WriteTargetFile(ran, true);
+                        targetIDs = @switch.ReadTarget(Environment.GetEnvironmentVariable("TARGET_FILE"));
                     }
                     catch (IOException e)
                     {
                         Console.WriteLine($"[ERROR] create random failed: {e.Message}");
                     }
                 }
-                var targetIDs = @switch.ReadTarget(Environment.GetEnvironmentVariable("TARGET_FILE"));
-
+                Debug.Assert(targetIDs != null);
                 var target = targetIDs.Where(x =>
                 {
                     if (installed != null && installed.Contains(x))
@@ -150,7 +163,7 @@ void StartOne(MediaDevice device, string SerialNumber)
                         installed_mb += new FileInfo(filename).Length / 1024 / 1024;
                         installed.Add(id);
                     }
-                    catch (System.IO.IOException e)
+                    catch (IOException e)
                     {
                         if (e.Message.EndsWith("already exists"))
                         {

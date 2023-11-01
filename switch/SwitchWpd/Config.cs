@@ -9,10 +9,27 @@ namespace SwitchWpd
         static Config()
         {
             var parser = new FileIniDataParser();
-            IniData = parser.ReadFile(Environment.GetEnvironmentVariable("CONFIG_PATH")?? "config.ini");
+            IniData = parser.ReadFile(Environment.GetEnvironmentVariable("CONFIG_PATH") ?? "config.ini");
         }
         public static string GetConfig(string key) => Environment.GetEnvironmentVariable(key) ?? InitDataDefault[key];
-        public static string Root => GetConfig("SWITCH_ROOT");
+        public static string[] Roots
+        {
+            get
+            {
+                var root = GetConfig("SWITCH_ROOT");
+                var roots = GetConfig("SWITCH_ROOTS");
+                List<string> p = new List<string>();
+                if (root != null)
+                {
+                    p.Add(root);
+                }
+                if (roots != null)
+                {
+                    return p.Concat(roots.Split(';')).ToArray();
+                }
+                return p.ToArray();
+            }
+        }
         public static string SWITCH_ID => GetConfig("SWITCH_ID");
         public static DiskTarget DISK_TARGET
         {

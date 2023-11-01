@@ -6,16 +6,15 @@ namespace SwitchWpd
 {
     public class ReadTargetHelper
     {
-        private static string PathRoot { get; } = Path.GetFullPath(TilesManager.Root).ToLower();
-        public static bool IsMultiDirLine(string p)
+        private static string PathRoot(string root) => Path.GetFullPath(root).ToLower();
+        public static bool IsMultiDirLine(string p, string root)
         {
             var count = 0;
             var offset = 0;
-            var root = Path.GetFullPath(TilesManager.Root).ToLower();
 
             do
             {
-                offset = p.IndexOf(PathRoot, offset) + 1;
+                offset = p.IndexOf(root, offset) + 1;
                 if (offset == 0)
                     break;
                 count++;
@@ -25,6 +24,15 @@ namespace SwitchWpd
                 Console.WriteLine($"Detected {count} Root Dir");
             }
             return count > 1;
+        }
+        public static bool IsMultiDirLine(string p)
+        {
+            foreach (var root in Config.Roots)
+            {
+                if (IsMultiDirLine(p, root))
+                    return true;
+            }
+            return false;
         }
         public HashSet<string> appIds = new HashSet<string>();
         HashSet<string> vals = new HashSet<string>();
@@ -112,16 +120,16 @@ namespace SwitchWpd
 
         public void ReadMultiDir(HashSet<string> vals, string p)
         {
-            char split = '\\';
             // 特殊模式 复制很多个目录
+            char split = '\\';
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 split = '/';
             }
-            var paths = p.Split(PathRoot, StringSplitOptions.RemoveEmptyEntries);
+            var paths = p.Split(Config.Roots.Select(PathRoot).ToArray(), StringSplitOptions.RemoveEmptyEntries);
             foreach (var path in paths)
             {
-                var dir = Path.Join(PathRoot, path);
+                var dir = Config.Roots.Select(x => Path.Join(x, path)).First(Directory.Exists);
                 FromDir(vals, dir.Trim());
             }
         }

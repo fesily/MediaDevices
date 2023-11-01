@@ -110,6 +110,7 @@ namespace SwitchWpd
             });
         }
         public bool FindAllTarget { get; private set; } = false;
+        public HashSet<string> AppIds { get; private set; }
         public string[] ReadTarget(string? target_file)
         {
             using (var ss = new MemoryStream())
@@ -130,6 +131,7 @@ namespace SwitchWpd
                     WriteTargetFile(helper.appIds.ToArray(), true);
                 }
                 FindAllTarget = helper.MissCount == 0;
+                AppIds = helper.appIds;
                 return rets;
             }
         }
@@ -151,19 +153,26 @@ namespace SwitchWpd
                 list[list.Count - 1 - i] = tempValue;
             }
         }
-        public string[] CreateRandomGames()
+        public string[] CreateRandomGames(string[]? targetIDs)
         {
             var left_memory = (long)FreeMem;
 
+            if (targetIDs != null)
+            {
+                left_memory -= targetIDs.SelectMany(TilesManager.Instance.EnumAppTileIdFilesID).Select(x => TilesManager.Instance.tileId2Path[x]).Select(x => new FileInfo(x).Length).Sum();
+                if (left_memory <= 0)
+                {
+                    return targetIDs;
+                }
+            }
             Console.WriteLine($"[INFO] Create Random Game List : Left Memory {left_memory / 1024 / 1024} MB");
-
 
             var games = TilesManager.Instance.AllGames.ToList();
             KnuthDurstenfeldShuffle(games);
 
             var installedIds = installed.Select(x => x.TileId).ToHashSet();
 
-            return games.Where(x => !installedIds.Contains(x.tileid)).Where(x =>
+            var arr = games.Where(x => !installedIds.Contains(x.tileid)).Where(x =>
             {
                 left_memory -= x.length;
                 if (left_memory > 0)
@@ -174,6 +183,11 @@ namespace SwitchWpd
                 }
                 return false;
             }).Select(g => g.tileid).ToArray();
+            if (targetIDs != null)
+            {
+                return targetIDs.Concat(arr).ToArray();
+            }
+            return arr;
         }
 
         public void WriteTargetFile(string[] ids, bool delete_old)
@@ -186,7 +200,16 @@ namespace SwitchWpd
             using (var ss = new MemoryStream(Encoding.Default.GetBytes(builder.ToString())))
             {
                 if (delete_old)
-                    _device.DeleteFile(installer_path);
+                {
+                    try
+                    {
+                        _device.DeleteFile(installer_path);
+                    }
+                    catch (FileNotFoundException)
+                    {
+
+                    }
+                }
                 _device.UploadFile(ss, installer_path);
             }
         }

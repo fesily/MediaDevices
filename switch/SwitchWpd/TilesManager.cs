@@ -2,7 +2,6 @@
 {
     public class TilesManager
     {
-        public static string Root { get; private set; } = Config.Root;
         public static string? GetTileId(string filename) => Path.GetFileName(filename).Split('[', ']').Where((x) =>
         {
             return (x.Length == 16 || x.Length == 18) && x.All(char.IsAsciiHexDigit);
@@ -21,12 +20,18 @@
             return Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
                 .Where(x => ValidExtensions.Contains(Path.GetExtension(x).ToLower()));
         }
-
         public static void EnumRoot()
+        {
+            foreach (var root in Config.Roots)
+            {
+                EnumRoot(root);
+            }
+        }
+        public static void EnumRoot(string root)
         {
             List<RootGameInfo> games = new List<RootGameInfo>();
             Dictionary<string, string> TileId2Path = new Dictionary<string, string>();
-            foreach (var dir in Directory.EnumerateDirectories(Root))
+            foreach (var dir in Directory.EnumerateDirectories(root))
             {
                 var filename = Path.GetFileName(dir);
                 if (!filename.StartsWith("["))
@@ -84,7 +89,7 @@
         public bool TryGetTitleIdFilesByName(string name, out string[] ids)
         {
             Func<string, int> match_score = x => x.Intersect(name).Count(c => !char.IsSeparator(c));
-            var infos = TilesManager.Instance.zh2TitleId.OrderByDescending(x => match_score(x.Key)).Take(5).OrderBy(x =>
+            var infos = Instance.zh2TitleId.OrderByDescending(x => match_score(x.Key)).Take(5).OrderBy(x =>
             {
                 var i = x.Key.IndexOf(name[0]);
                 return i == -1 ? 99999 : i;
