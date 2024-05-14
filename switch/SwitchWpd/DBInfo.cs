@@ -39,7 +39,7 @@ public class DBInfo
     }
     public static string GetName(string id)
     {
-        var info = infos.Find(x => x.TitleID == id);
+        var info = infos?.Find(x => x.TitleID == id);
         return info?.CH_NAME ?? info?.Name ?? id;
     }
 }

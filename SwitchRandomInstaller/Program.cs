@@ -20,7 +20,7 @@ Console.WriteLine($"Need Random Installer : {NeedRandomInstaller}");
 
 TilesManager.EnumRoot();
 
-DBInfo.ReadGameDBInfo();
+//DBInfo.ReadGameDBInfo();
 
 //序列号
 MediaDevice? device;
@@ -91,12 +91,11 @@ void StartOne(MediaDevice device, string SerialNumber)
     }
     try
     {
-        device.Connect();
         var failedList = new Dictionary<string, int>();
 
         for (int i = 0; i < 64; i++)
         {
-
+            device.Connect();
             Console.WriteLine($"FirmwareVersion: {device.FirmwareVersion}");
             try
             {
