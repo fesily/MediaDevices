@@ -1,6 +1,7 @@
 ﻿using CsvHelper.Configuration;
 using MediaDevices;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 using System.Globalization;
 using System.Management;
 using System.Text;
@@ -67,11 +68,12 @@ namespace SwitchWpd
                     }
                 }
             }
-            catch (FileNotFoundException)
+            catch (FileNotFoundException e)
             {
-                Console.WriteLine($"[WARN] Not install any game!");
-                installed = Array.Empty<InstalledGameInfo>();
-                return installed;
+                Console.WriteLine($"[ERROR] Not find Installed Games Information, entry any key to exit");
+                Console.ReadKey();
+                Environment.Exit(1);
+                throw;
             }
         }
         public IEnumerable<InstalledGameInfo> ReadInstalledGames()
