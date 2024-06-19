@@ -102,13 +102,13 @@ void StartOne(MediaDevice device, string SerialNumber)
                 var @switch = new SwitchWpd.Switch(device);
 
                 var installed = @switch.ReadInstalledGames().Select(x => x.TileId).ToList();
-                if (Config.INSTALLED_FILE_PATH.Length > 0 && File.Exists(Config.INSTALLED_FILE_PATH))
+                if (Config.INSTALLED_FILE_PATH?.Length > 0 && File.Exists(Config.INSTALLED_FILE_PATH))
                 {
                     Console.WriteLine($"Read installed file from: {Config.INSTALLED_FILE_PATH}");
                     var customInstalled = @switch.ReadInstalledGames(Config.INSTALLED_FILE_PATH).Select(x=>x.TileId).ToList();
                     if (customInstalled != null)
                     {
-                        installed = installed != null ? installed.Concat(customInstalled).ToList() : customInstalled;
+                        installed = installed != null ? installed.Union(customInstalled).ToList() : customInstalled;
                     }
                 }
 
