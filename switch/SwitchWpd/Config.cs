@@ -36,10 +36,12 @@ namespace SwitchWpd
             get
             {
                 var env = GetConfig("DISK_TARGET");
-                return env != null ? Enum.Parse<DiskTarget>(env) : DiskTarget.SD;
+                return env != null ? Enum.Parse<DiskTarget>(env) : DiskTarget.All;
             }
         }
         public static bool RANDOM => GetConfig("RANDOM") != null;
+
+        public static string INSTALLED_FILE_PATH => GetConfig("INSTALLED");
 
     }
     public enum DiskTarget

@@ -43,11 +43,10 @@ namespace SwitchWpd
         }
         public const string hash_name = "installer_hash";
         public string installer_path { get; private set; } = DiskPath.Join(DiskPath.Type.SD_Card, "installer");
-        private InstalledGameInfo[] ReadInstalledGameFile()
+        private InstalledGameInfo[] ReadInstalledGameFile(string p)
         {
             try
             {
-                var p = DiskPath.Join(DiskPath.Type.Installed_Games, "InstalledApplications.csv");
                 using (var ss = new MemoryStream())
                 {
                     _device.DownloadFile(p, ss);
@@ -76,9 +75,11 @@ namespace SwitchWpd
                 throw;
             }
         }
-        public IEnumerable<InstalledGameInfo> ReadInstalledGames()
+        public IEnumerable<InstalledGameInfo> ReadInstalledGames(string p = "")
         {
-            return ReadInstalledGameFile().SelectMany(x =>
+            if (p.Length == 0)
+                p = DiskPath.Join(DiskPath.Type.Installed_Games, "InstalledApplications.csv");
+            return ReadInstalledGameFile(p).SelectMany(x =>
             {
                 if (x.Version != "" && int.Parse(x.Version) > 0)
                 {

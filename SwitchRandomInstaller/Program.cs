@@ -102,6 +102,15 @@ void StartOne(MediaDevice device, string SerialNumber)
                 var @switch = new SwitchWpd.Switch(device);
 
                 var installed = @switch.ReadInstalledGames().Select(x => x.TileId).ToList();
+                if (Config.INSTALLED_FILE_PATH.Length > 0 && File.Exists(Config.INSTALLED_FILE_PATH))
+                {
+                    Console.WriteLine($"Read installed file from: {Config.INSTALLED_FILE_PATH}");
+                    var customInstalled = @switch.ReadInstalledGames(Config.INSTALLED_FILE_PATH).Select(x=>x.TileId).ToList();
+                    if (customInstalled != null)
+                    {
+                        installed = installed != null ? installed.Concat(customInstalled).ToList() : customInstalled;
+                    }
+                }
 
                 string[]? targetIDs = null;
                 try
@@ -157,7 +166,7 @@ void StartOne(MediaDevice device, string SerialNumber)
                     {
                         var start = DateTime.Now;
                         Console.WriteLine($"[{start}][{count}/{target.Count}][{installed_mb}MB/{target_mb}MB][upload]\t{filename}\t[{(target_mb - installed_mb) / (installed_mb / spentTime.TotalSeconds) / 60}M]");
-                        device.UploadFile(filename, DiskPath.Join(diskTarget == DiskTarget.SD ? DiskPath.Type.SD_Card_install : DiskPath.Type.NAND_install, Path.GetFileName(filename)));
+                        device.UploadFile(filename, DiskPath.Join(diskTarget == DiskTarget.Nand ? DiskPath.Type.NAND_install : DiskPath.Type.SD_Card_install, Path.GetFileName(filename)));
                         spentTime += DateTime.Now - start;
                         installed_mb += new FileInfo(filename).Length / 1024 / 1024;
                         installed.Add(id);
