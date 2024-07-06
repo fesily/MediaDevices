@@ -1,4 +1,6 @@
-﻿namespace SwitchWpd
+﻿using System.Text.RegularExpressions;
+
+namespace SwitchWpd
 {
     public class TilesManager
     {
@@ -86,26 +88,61 @@
             Console.WriteLine($"[ERROR] NO GAME!{DBInfo.GetName(tileId)}:{tileId}");
             return Array.Empty<string>();
         }
-        public bool TryGetTitleIdFilesByName(string name, out string[] ids)
-        {
-            Func<string, int> match_score = x => x.Intersect(name).Count(c => !char.IsSeparator(c));
-            var infos = Instance.zh2TitleId.OrderByDescending(x => match_score(x.Key)).Take(5).OrderBy(x =>
-            {
-                var i = x.Key.IndexOf(name[0]);
-                return i == -1 ? 99999 : i;
-            }).ToArray();
 
-            foreach (var info in infos)
+        static string[] FindBestMatch(string[] sourceStrings, string[] keywords)
+        {
+            List<string> matchedStrings = new List<string>();
+
+            foreach (string source in sourceStrings)
             {
-                if (match_score(info.Key) == name.Intersect(name).Where(c => !char.IsSeparator(c)).Count())
+                if (MatchesAllKeywords(source, keywords))
                 {
-                    Console.WriteLine($"{name} matched {info.Key}, try use {Path.Join(info.Value)}");
-                    ids = info.Value;
-                    return true;
+                    matchedStrings.Add(source);
                 }
             }
+
+            if (matchedStrings.Count == 0)
+            {
+                return null;
+            }
+
+            return matchedStrings.OrderBy(s => s.Length).ToArray();
+        }
+
+        static bool MatchesAllKeywords(string source, string[] keywords)
+        {
+            int currentIndex = 0;
+
+            foreach (string keyword in keywords)
+            {
+                string pattern = "^.*" + Regex.Escape(keyword).Replace("\\*", ".*") + ".*$";
+                Regex regex = new Regex(pattern);
+
+                Match match = regex.Match(source.Substring(currentIndex));
+                if (!match.Success)
+                {
+                    return false;
+                }
+
+                currentIndex += match.Index + match.Length;
+            }
+
+            return true;
+        }
+
+        public bool TryGetTitleIdFilesByName(string name, out string[] ids)
+        {
+            var keywords = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var bestMatch = FindBestMatch(Instance.zh2TitleId.Keys.ToArray(), keywords);
             ids = Array.Empty<string>();
-            return false;
+            if (bestMatch == null) return false; 
+            foreach (var matcher in bestMatch)
+            {
+                var info = Instance.zh2TitleId[matcher];
+                ids = ids.Concat(info).ToArray();
+                Console.WriteLine($"{name} matched {matcher}, try use {Path.Join(info)}");
+            }
+            return true;
         }
         public class RootGameInfo
         {

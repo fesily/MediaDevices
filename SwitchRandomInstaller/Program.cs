@@ -80,14 +80,14 @@ if (device == null)
 
 StartOne(device, SerialNumber);
 
-void StartOne(MediaDevice device, string SerialNumber)
+bool StartOne(MediaDevice device, string SerialNumber)
 {
     var mtx = new Mutex(false, SerialNumber);
 
     if (!mtx.WaitOne(1000))
     {
         Console.WriteLine($"[WARN]{SerialNumber} Can't get mutex");
-        return;
+        return false;
     }
     try
     {
@@ -195,7 +195,7 @@ void StartOne(MediaDevice device, string SerialNumber)
                             }
                             else
                             {
-                                return;
+                                return true;
                             }
                         }
                         else
@@ -213,7 +213,16 @@ void StartOne(MediaDevice device, string SerialNumber)
                 {
                     @switch.CompleteTarget();
                 }
-                return;
+                if (NeedRandomInstaller) return true;
+
+                if (Environment.GetEnvironmentVariable("NO_RANDOM_FULL") == null)
+                    return true;
+                NeedRandomInstaller = true;
+                mtx.ReleaseMutex();
+                mtx = null;
+                Console.WriteLine("[INFO] Random full emmc");
+                StartOne(device, SerialNumber);
+                return true;
             }
             catch (System.Runtime.InteropServices.COMException e)
             {
@@ -227,9 +236,11 @@ void StartOne(MediaDevice device, string SerialNumber)
                 device.Disconnect();
             }
         }
+        return false;
     }
     finally
     {
-        mtx.ReleaseMutex();
+        if (mtx != null)
+            mtx.ReleaseMutex();
     }
 }
