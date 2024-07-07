@@ -4,6 +4,12 @@ namespace SwitchWpd
 {
     public class TilesManager
     {
+        private static Dictionary<string, string> nameMap = new Dictionary<string, string>()
+        {
+            {"蓓优妮塔", "猎天使魔女" },
+            {"异度神剑", "异度之刃" },
+            {"斯普拉遁", "喷射战士" },
+        };
         public static string? GetTileId(string filename) => Path.GetFileName(filename).Split('[', ']').Where((x) =>
         {
             return (x.Length == 16 || x.Length == 18) && x.All(char.IsAsciiHexDigit);
@@ -63,7 +69,21 @@ namespace SwitchWpd
                     dir_path = dir,
                     allTitleIds = allTitleIds.ToArray()
                 });
-
+                foreach (var n in nameMap.Keys)
+                {
+                    if (ch_name.StartsWith(n))
+                    {
+                        games.Add(new RootGameInfo
+                        {
+                            ch_name = ch_name.Replace(n, nameMap[n]),
+                            en_name = en_name,
+                            tileid = tileid,
+                            length = length,
+                            dir_path = dir,
+                            allTitleIds = allTitleIds.ToArray()
+                        });
+                    }
+                }
             }
 
             Dictionary<string, string> en2TitleId = games.Where(g => !string.IsNullOrEmpty(g.en_name)).ToDictionary(g => g.en_name, g => g.tileid);
