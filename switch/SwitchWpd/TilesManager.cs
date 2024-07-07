@@ -115,7 +115,7 @@ namespace SwitchWpd
 
             foreach (string keyword in keywords)
             {
-                string pattern = "^.*" + Regex.Escape(keyword).Replace("\\*", ".*") + ".*$";
+                string pattern = Regex.Escape(keyword).Replace("\\*", ".*");
                 Regex regex = new Regex(pattern);
 
                 Match match = regex.Match(source.Substring(currentIndex));
@@ -124,7 +124,7 @@ namespace SwitchWpd
                     return false;
                 }
 
-                currentIndex += match.Index + match.Length;
+                currentIndex += match.Index + keyword.Length;
             }
 
             return true;
