@@ -76,8 +76,8 @@ namespace SwitchWpd
                         games.Add(new RootGameInfo
                         {
                             ch_name = ch_name.Replace(n, nameMap[n]),
-                            en_name = en_name,
-                            tileid = tileid,
+                            en_name = "",
+                            tileid = "",
                             length = length,
                             dir_path = dir,
                             allTitleIds = allTitleIds.ToArray()
@@ -88,7 +88,7 @@ namespace SwitchWpd
 
             Dictionary<string, string> en2TitleId = games.Where(g => !string.IsNullOrEmpty(g.en_name)).ToDictionary(g => g.en_name, g => g.tileid);
             Dictionary<string, string[]> zh2TitleId = games.Where(g => !string.IsNullOrEmpty(g.ch_name)).GroupBy(g => g.ch_name).ToDictionary(g => g.Key, g => g.Select(g1 => g1.tileid).ToArray()); ;
-            Dictionary<string, string> AppTileId2Path = games.ToDictionary(g => g.tileid, g => g.dir_path);
+            Dictionary<string, string> AppTileId2Path = games.Where(g => !string.IsNullOrEmpty(g.tileid)).ToDictionary(g => g.tileid, g => g.dir_path);
 
             Instance = new TilesManager()
             {
