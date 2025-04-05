@@ -2,6 +2,40 @@
 using MediaDevices;
 using SwitchWpd;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
+
+// 创建一个线程 定时刷新系统休眠定时器
+Thread preventSleepThread = new Thread(() =>
+{
+    // 导入SetThreadExecutionState API
+    [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    static extern uint SetThreadExecutionState(uint esFlags);
+
+    // 定义常量
+    const uint ES_CONTINUOUS = 0x80000000;
+    const uint ES_SYSTEM_REQUIRED = 0x00000001;
+    const uint ES_DISPLAY_REQUIRED = 0x00000002;
+
+    try
+    {
+        Console.WriteLine("启动防休眠线程");
+        while (true)
+        {
+            // 告诉系统当前有任务在执行，禁止进入睡眠状态
+            SetThreadExecutionState(ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
+            Thread.Sleep(30000); // 每30秒刷新一次
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"防休眠线程出错: {ex.Message}");
+    }
+})
+{
+    IsBackground = true // 设置为后台线程，主程序结束时自动结束
+};
+
+preventSleepThread.Start();
 
 if (Config.Roots == null || Config.Roots.Length == 0)
 {
