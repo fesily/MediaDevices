@@ -181,7 +181,7 @@ namespace MediaDevices.Internal
                 }
                 else
                 {
-                    this.Name = this.OriginalFileName;
+                    this.Name = this.OriginalFileName.Length > 0 ? this.OriginalFileName : this.name;
                     this.Type = ItemType.File;
                 }
                 if (this.path != null) // TODO check if we can remove empty pathes
