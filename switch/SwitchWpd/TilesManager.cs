@@ -9,6 +9,7 @@ namespace SwitchWpd
             {"蓓优妮塔", "猎天使魔女" },
             {"异度神剑", "异度之刃" },
             {"斯普拉遁", "喷射战士" },
+            {"师傅", "师父" },
         };
         public static string? GetTileId(string filename) => Path.GetFileName(filename).Split('[', ']').Where((x) =>
         {
@@ -71,11 +72,26 @@ namespace SwitchWpd
                 });
                 foreach (var n in nameMap.Keys)
                 {
-                    if (ch_name.StartsWith(n))
+                    if (ch_name.Contains(n))
                     {
                         games.Add(new RootGameInfo
                         {
                             ch_name = ch_name.Replace(n, nameMap[n]),
+                            en_name = "",
+                            tileid = "",
+                            length = length,
+                            dir_path = dir,
+                            allTitleIds = allTitleIds.ToArray()
+                        });
+                    }
+                }
+                foreach (var n in nameMap.Values)
+                {
+                    if (ch_name.Contains(n))
+                    {
+                        games.Add(new RootGameInfo
+                        {
+                            ch_name = ch_name.Replace(n, nameMap.First(x => x.Value == n).Key),
                             en_name = "",
                             tileid = "",
                             length = length,

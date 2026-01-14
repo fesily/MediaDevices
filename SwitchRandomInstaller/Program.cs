@@ -260,7 +260,6 @@ bool StartOne(MediaDevice device, string SerialNumber)
             }
             catch (System.Runtime.InteropServices.COMException e)
             {
-                SwitchWpd.Switch.Reset(device.PnPDeviceID);
                 float ms = 5000 + (int)(i * Random.Shared.NextSingle());
                 Console.WriteLine($"[ERROR] 失败{e.Message},等待{ms / 1000}S");
                 Thread.Sleep((int)ms);
