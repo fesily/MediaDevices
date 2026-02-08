@@ -10,6 +10,8 @@ namespace SwitchWpd
             {"异度神剑", "异度之刃" },
             {"斯普拉遁", "喷射战士" },
             {"师傅", "师父" },
+            {"马里奥", "马里欧"},
+            {"瓦里奥", "瓦力欧"},
         };
         public static string? GetTileId(string filename) => Path.GetFileName(filename).Split('[', ']').Where((x) =>
         {

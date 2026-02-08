@@ -126,7 +126,7 @@ bool StartOne(MediaDevice device, string SerialNumber)
     try
     {
         var failedList = new Dictionary<string, int>();
-
+        var installed = new List<string>();
         for (int i = 0; i < 64; i++)
         {
             device.Connect();
@@ -135,7 +135,11 @@ bool StartOne(MediaDevice device, string SerialNumber)
             {
                 var @switch = new SwitchWpd.Switch(device);
 
-                var installed = @switch.ReadInstalledGames().Select(x => x.TileId).ToList();
+                var switchInstalled = @switch.ReadInstalledGames().Select(x => x.TileId).ToList();
+                if (switchInstalled != null)
+                {
+                    installed = installed.Union(switchInstalled).ToList();
+                }
                 if (Config.INSTALLED_FILE_PATH?.Length > 0 && File.Exists(Config.INSTALLED_FILE_PATH))
                 {
                     Console.WriteLine($"Read installed file from: {Config.INSTALLED_FILE_PATH}");
@@ -144,6 +148,10 @@ bool StartOne(MediaDevice device, string SerialNumber)
                     {
                         installed = installed != null ? installed.Union(customInstalled).ToList() : customInstalled;
                     }
+                }
+                if (installed != null)
+                {
+                    installed = installed.ToHashSet().ToList();
                 }
 
                 string[]? targetIDs = null;
