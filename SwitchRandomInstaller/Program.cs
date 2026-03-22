@@ -61,11 +61,14 @@ MediaDevice? device;
 var SerialNumber = Config.SWITCH_ID;
 if (SerialNumber == null)
 {
-    var devices = MediaDevice.GetDevices().Where(x => x.FriendlyName == "Switch").Where(x =>
-     {
-         x.Connect();
-         return !Mutex.TryOpenExisting(x.SerialNumber, out Mutex? _);
-     }).ToList();
+    var devices = MediaDevice.GetDevices().Select(x =>
+    {
+        x.Connect();
+        return x;
+    }).Where(x => x.Model == "Switch").Where(x =>
+         {
+             return !Mutex.TryOpenExisting(x.SerialNumber, out Mutex? _);
+         }).ToList();
     if (devices.Count > 1)
     {
         // fork new process
@@ -143,7 +146,7 @@ bool StartOne(MediaDevice device, string SerialNumber)
                 if (Config.INSTALLED_FILE_PATH?.Length > 0 && File.Exists(Config.INSTALLED_FILE_PATH))
                 {
                     Console.WriteLine($"Read installed file from: {Config.INSTALLED_FILE_PATH}");
-                    var customInstalled = @switch.ReadInstalledGames(Config.INSTALLED_FILE_PATH).Select(x=>x.TileId).ToList();
+                    var customInstalled = @switch.ReadInstalledGames(Config.INSTALLED_FILE_PATH).Select(x => x.TileId).ToList();
                     if (customInstalled != null)
                     {
                         installed = installed != null ? installed.Union(customInstalled).ToList() : customInstalled;
